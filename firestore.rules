@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /users/{uid}/products/{productId} {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'name', 'stock', 'leadTimeDays', 'safetyStock', 'revision'])
+        && request.resource.data.id == productId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && (request.resource.data.stock == null || (request.resource.data.stock is int && request.resource.data.stock >= 0 && request.resource.data.stock <= 1000000000))
+        && (request.resource.data.leadTimeDays == null || (request.resource.data.leadTimeDays is int && request.resource.data.leadTimeDays >= 0 && request.resource.data.leadTimeDays <= 365))
+        && (request.resource.data.safetyStock == null || (request.resource.data.safetyStock is int && request.resource.data.safetyStock >= 0 && request.resource.data.safetyStock <= 1000000000))
+        && request.resource.data.revision is int && request.resource.data.revision > 0;
+      allow delete: if false;
+    }
+    match /users/{uid}/receipts/{receiptId} {
+      allow read: if owner(uid);
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'date', 'type', 'createdAt', 'items'])
+        && request.resource.data.id == receiptId
+        && request.resource.data.type in ['SALE', 'PURCHASE']
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.createdAt is int
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0 && request.resource.data.items.size() <= 100;
+      allow update, delete: if false;
+    }
+  }
+}
