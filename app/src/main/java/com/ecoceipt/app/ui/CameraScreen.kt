@@ -14,6 +14,12 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -25,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import coil.compose.AsyncImage
 import java.io.File
 
 @Composable fun CameraScreen(busy: Boolean, openGallery: Boolean, scanned: (Uri) -> Unit, back: () -> Unit, error: (String) -> Unit) {
@@ -35,6 +40,8 @@ import java.io.File
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     var capture by remember { mutableStateOf<ImageCapture?>(null) }
     var taking by remember { mutableStateOf(false) }
+    var flash by remember { mutableStateOf(false) }
+    var hasFlash by remember { mutableStateOf(false) }
     var cameraError by remember { mutableStateOf<String?>(null) }
     val requestPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -58,51 +65,77 @@ import java.io.File
                 val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val imageCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
                 provider?.unbindAll()
-                provider?.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+                val camera = provider?.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+                hasFlash = camera?.cameraInfo?.hasFlashUnit() == true
+                flash = false
                 capture = imageCapture
                 cameraError = null
             } catch (e: Exception) { cameraError = "Kamera tidak tersedia. Pilih gambar dari galeri." }
         }, executor)
         onDispose { active = false; provider?.unbindAll(); capture = null }
     }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (granted) AndroidView({ previewView }, Modifier.fillMaxSize())
-        if (!granted || cameraError != null) Column(Modifier.align(Alignment.Center).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Label(cameraError ?: "Izinkan kamera untuk memotret nota, atau pilih gambar dari galeri.", color = Color.White)
-            if (!granted) Action("Izinkan Kamera") { requestPermission.launch(Manifest.permission.CAMERA) }
-            Action("Pilih dari Galeri", secondary = true) { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-        }
-        TextButton(back, Modifier.align(Alignment.TopStart)) { Label("‹ Kembali", color = Color.White) }
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(175.dp).background(Color.White.copy(alpha = 0.27f)).padding(horizontal = 30.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AsyncImage("file:///android_asset/figma/eb40c.svg", "Pilih dari galeri", Modifier.size(40.dp).clickable(enabled = !busy && !taking) {
+    Column(Modifier.fillMaxSize().background(Ink)) {
+        Box(Modifier.fillMaxWidth().weight(1f)) {
+            if (granted) AndroidView({ previewView }, Modifier.fillMaxSize())
+            if (!granted || cameraError != null) Column(
+                Modifier.align(Alignment.Center).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Label(cameraError ?: "Izinkan kamera untuk memotret nota, atau pilih gambar dari galeri.", color = Color.White)
+                if (!granted) Action("Izinkan Kamera") { requestPermission.launch(Manifest.permission.CAMERA) }
+                Action("Pilih dari Galeri", secondary = true) {
                     gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                })
-                Label("Galeri", 11, Color.White)
+                }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                AsyncImage("file:///android_asset/figma/60c30.svg", "Ambil foto nota", Modifier.size(90.dp).clickable(enabled = capture != null && !busy && !taking) {
-                    taking = true
-                    val photo = File.createTempFile("receipt-", ".jpg", context.cacheDir)
-                    capture?.takePicture(ImageCapture.OutputFileOptions.Builder(photo).build(), executor,
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                taking = false; scanned(Uri.fromFile(photo))
-                            }
-                            override fun onError(exception: ImageCaptureException) {
-                                taking = false; photo.delete(); error("Foto gagal diambil. Coba lagi atau pilih dari galeri.")
-                            }
-                        })
-                })
-                Label(if (taking) "Memotret…" else "Ambil Foto", 11, Color.White)
+            TextButton(back, Modifier.align(Alignment.TopStart).padding(16.dp)
+                .background(Ink.copy(alpha = 0.85f), RoundedCornerShape(24.dp)), enabled = !taking && !busy,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
+                Label("‹  Kembali", 14, Color.White, true)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                var flash by remember { mutableStateOf(false) }
-                AsyncImage("file:///android_asset/figma/d2a24.svg", "Lampu kilat", Modifier.size(70.dp).clickable(enabled = capture != null) {
-                    flash = !flash; capture?.flashMode = if (flash) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
-                })
-                Label(if (flash) "Flash aktif" else "Flash mati", 11, Color.White)
+            if (granted && cameraError == null) Box(Modifier.align(Alignment.BottomCenter)
+                .padding(16.dp).background(Ink.copy(alpha = 0.85f), Round).padding(12.dp)) {
+                Label("Pastikan seluruh nota terlihat dan teks terbaca", 12, Color.White)
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
+            TextButton(onClick = {
+                gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }, enabled = !busy && !taking, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                Label("Galeri", 14, if (!busy && !taking) Color.White else Muted, true)
+            }
+            Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val ready = capture != null && !busy && !taking
+                Box(Modifier.size(80.dp).clip(CircleShape)
+                    .border(3.dp, if (ready) Color.White else Muted, CircleShape)
+                    .clickable(enabled = ready, role = Role.Button, onClickLabel = "Ambil foto nota") {
+                        val imageCapture = capture ?: return@clickable
+                        taking = true
+                        val photo = runCatching { File.createTempFile("receipt-", ".jpg", context.cacheDir) }
+                            .getOrElse { taking = false; error("Foto gagal disiapkan. Periksa ruang penyimpanan."); return@clickable }
+                        imageCapture.takePicture(ImageCapture.OutputFileOptions.Builder(photo).build(), executor,
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                    taking = false; scanned(Uri.fromFile(photo))
+                                }
+                                override fun onError(exception: ImageCaptureException) {
+                                    taking = false; photo.delete(); error("Foto gagal diambil. Coba lagi atau pilih dari galeri.")
+                                }
+                            })
+                    }.padding(7.dp).background(if (ready) Color.White else LightGray, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    if (taking) CircularProgressIndicator(Modifier.size(28.dp), color = DarkTeal, strokeWidth = 3.dp)
+                }
+                Label(if (taking) "Memotret…" else "Ambil Foto", 12, Color.White, true)
+            }
+            TextButton(onClick = {
+                flash = !flash
+                capture?.flashMode = if (flash) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+            }, enabled = capture != null && hasFlash && !busy && !taking,
+                modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                Label(if (!hasFlash) "Tanpa flash" else if (flash) "Flash aktif" else "Flash mati", 12,
+                    if (!hasFlash || busy || taking) Muted else if (flash) Mint else Color.White, true)
             }
         }
     }

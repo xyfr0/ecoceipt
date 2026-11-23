@@ -35,7 +35,6 @@ import java.util.Locale
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var period by rememberSaveable { mutableStateOf(Period.ALL) }
     var selected by remember { mutableStateOf<Receipt?>(null) }
-    Heading("RIWAYAT TRANSAKSI", "Lihat kembali nota usahamu")
     Input("Cari nama barang", query, { query = it })
     Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
     Filters(listOf("Semua", "Penjualan", "Pembelian"), filter) { filter = it }
@@ -63,7 +62,6 @@ import java.util.Locale
     var period by rememberSaveable { mutableStateOf(Period.ALL) }
     val analysis = s.summaries[period] ?: SalesAnalysis.calculate(emptyList(), period, s.today)
     val count = s.recommendations.count { it.needsRestock }
-    Heading("ANALISIS PENJUALAN", "Pahami perkembangan penjualan usaha anda")
     Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         Panel(Modifier.weight(1f).heightIn(min = 143.dp)) {

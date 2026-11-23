@@ -1,6 +1,7 @@
 package com.ecoceipt.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,10 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
+import com.ecoceipt.app.R
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -45,14 +46,12 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
     Text(text, modifier, color = color, fontSize = size.sp, lineHeight = (size + 4).sp,
         fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal)
 }
-@Composable fun Heading(title: String, subtitle: String = "") {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { Label(title, 18, bold = true); if (subtitle.isNotEmpty()) Label(subtitle, 12, Muted) }
-}
 @Composable fun Panel(modifier: Modifier = Modifier, color: Color = Color.White, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier.fillMaxWidth().background(color, Round).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
 }
-@Composable fun Action(text: String, enabled: Boolean = true, secondary: Boolean = false, onClick: () -> Unit) {
+@Composable fun Action(text: String, enabled: Boolean = true, secondary: Boolean = false, framed: Boolean = false, onClick: () -> Unit) {
     Button(onClick, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = enabled, shape = Round,
+        border = if (framed) BorderStroke(1.5.dp, if (enabled) DarkTeal else LightGray) else null,
         colors = ButtonDefaults.buttonColors(containerColor = if (secondary) Color.White else DarkTeal,
             contentColor = if (secondary) DarkTeal else Color.White)) {
         Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -84,24 +83,25 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
 @Composable fun Empty(title: String, message: String) {
     Panel { Label(title, 16, bold = true); Label(message, 13, Muted) }
 }
-@Composable fun Header(showLogo: Boolean = true) {
-    Box(Modifier.fillMaxWidth().height(76.dp).background(Color.White), contentAlignment = Alignment.Center) {
-        if (showLogo) AsyncImage("file:///android_asset/figma/8d105.png", "Ecoceipt", Modifier.size(57.dp))
-    }
-}
-@Composable fun BackTitle(title: String, back: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        TextButton(back, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(32.dp)) { Label("‹", 26) }
-        Label(title, 18, bold = true)
+@Composable fun BackButton(back: () -> Unit) {
+    IconButton(onClick = back, modifier = Modifier.size(48.dp)) {
+        Icon(painterResource(R.drawable.ic_back), "Kembali", tint = DarkTeal)
     }
 }
 @Composable fun BottomNav(screen: Screen, navigate: (Screen) -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color.White).padding(8.dp, 6.dp)) {
-        listOf(Screen.HOME to "Beranda", Screen.HISTORY to "Riwayat", Screen.ANALYSIS to "Analisis", Screen.RECOMMENDATIONS to "Rekomendasi").forEach { (s, text) ->
-            Box(Modifier.weight(1f).heightIn(min = 45.dp).background(if (screen == s) Mint else Color.White, Round)
-                .clickable { navigate(s) }.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-                Text(text, fontSize = 12.sp, fontWeight = if (screen == s) FontWeight.SemiBold else FontWeight.Normal, color = if (screen == s) DarkTeal else Muted, textAlign = TextAlign.Center)
-            }
+    NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
+        listOf(
+            Triple(Screen.HOME, "Beranda", R.drawable.ic_home),
+            Triple(Screen.HISTORY, "Riwayat", R.drawable.ic_history),
+            Triple(Screen.STOCK, "Stok", R.drawable.ic_stock),
+            Triple(Screen.ANALYSIS, "Analisis", R.drawable.ic_analysis),
+            Triple(Screen.RECOMMENDATIONS, "Rekomendasi", R.drawable.ic_recommendations),
+            Triple(Screen.ACCOUNT, "Akun", R.drawable.ic_account)
+        ).forEach { (destination, label, icon) ->
+            NavigationBarItem(selected = screen == destination, onClick = { navigate(destination) },
+                icon = { Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(24.dp)) },
+                colors = NavigationBarItemDefaults.colors(selectedIconColor = DarkTeal,
+                    unselectedIconColor = Muted, indicatorColor = Mint))
         }
     }
 }

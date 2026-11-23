@@ -33,22 +33,23 @@ import java.time.LocalDate
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshDate() }
     LaunchedEffect(s.message) { s.message?.let { snackbar.showSnackbar(it); vm.dismissMessage() } }
     BackHandler(s.screen != Screen.LOGIN && s.screen != Screen.HOME) { vm.back() }
-    val nav = s.screen in listOf(Screen.HOME, Screen.HISTORY, Screen.ANALYSIS, Screen.STOCK, Screen.RECOMMENDATIONS)
+    val nav = s.screen in listOf(Screen.HOME, Screen.HISTORY, Screen.ANALYSIS, Screen.STOCK, Screen.RECOMMENDATIONS, Screen.ACCOUNT)
     Scaffold(
         modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding(), containerColor = Mint,
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { if (s.screen != Screen.LOGIN && s.screen != Screen.SCAN) Header(s.screen != Screen.HOME && s.screen != Screen.STOCK) },
         bottomBar = { if (nav) BottomNav(s.screen, vm::navigate) }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (s.screen) {
                 Screen.LOGIN -> LoginScreen(s, vm)
                 Screen.SCAN -> CameraScreen(s.busy, s.openGallery, vm::scan, vm::back, vm::notify)
-                else -> key(s.screen) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp, 8.dp),
+                else -> key(s.screen) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp, 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (!nav) BackButton(vm::back)
                     s.dataError?.let { error -> Panel { Label(error, 12, Danger); Link("Coba lagi", vm::retryData) } }
                     when (s.screen) {
-                        Screen.HOME -> HomeScreen(s, vm) { logoutDialog = true }
+                        Screen.HOME -> HomeScreen(s, vm)
+                        Screen.ACCOUNT -> AccountScreen(s, vm) { logoutDialog = true }
                         Screen.HISTORY -> HistoryScreen(s)
                         Screen.ANALYSIS -> AnalysisScreen(s, vm)
                         Screen.STOCK -> StockScreen(s, vm)
@@ -92,9 +93,9 @@ import java.time.LocalDate
             visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color(0xFFF3F6F6), focusedContainerColor = Color.White))
         Spacer(Modifier.height(36.dp))
-        Action("Sign In", !s.busy, true) { vm.login(email, password) }
+        Action("Sign In", !s.busy, secondary = true, framed = true) { vm.login(email, password) }
         Spacer(Modifier.height(8.dp))
-        Action("Create Account", !s.busy) { vm.login(email, password, true) }
+        Action("Create Account", !s.busy, framed = true) { vm.login(email, password, true) }
         Link("Forget password?", { vm.resetPassword(email) }, DarkTeal)
         Spacer(Modifier.height(48.dp))
         Link("Continue as Guest", vm::guest, DarkTeal)
@@ -102,10 +103,9 @@ import java.time.LocalDate
     }
 }
 
-@Composable private fun HomeScreen(s: UiState, vm: EcoceiptViewModel, logout: () -> Unit) {
+@Composable private fun HomeScreen(s: UiState, vm: EcoceiptViewModel) {
     val summary = s.summaries[Period.TODAY] ?: SalesAnalysis.calculate(emptyList(), Period.TODAY, s.today)
     val recommendations = s.recommendations
-    Heading("BERANDA", "Kelola nota dan stok usahamu")
     Panel(color = Teal) {
         Label("Pindai Nota", 16, Color.White, true)
         Label("Foto nota, data transaksi tersusun otomatis", 12, Color.White)
@@ -141,23 +141,19 @@ import java.time.LocalDate
     }
     if (s.receipts.isEmpty()) Empty("Belum ada transaksi", "Pindai nota pertama untuk mulai mencatat penjualan.")
     s.receipts.take(3).forEach { ReceiptCard(it) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Label(if (s.guest) "Tamu · data di perangkat ini" else s.user, 11, Muted, modifier = Modifier.weight(1f))
-        Link("Keluar", logout)
-    }
+
 }
 
 @Composable private fun ProcessingScreen(s: UiState, vm: EcoceiptViewModel) {
-    Heading("MEMPROSES NOTA", "Mohon tunggu sebentar")
     Panel { AsyncImage(s.image, "Foto nota", Modifier.fillMaxWidth().height(180.dp).background(LightGray, Round)) }
     Panel {
         listOf("Teks nota dibaca (OCR)", "Menyusun data transaksi (AI)", "Memeriksa kelengkapan data").forEachIndexed { index, label ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (index == s.scanStep) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                 else Box(Modifier.size(24.dp).background(if (index < s.scanStep) Teal else LightGray, CircleShape), contentAlignment = Alignment.Center) {
-                    if (index < s.scanStep) Label("✓", 13, Color.White, true)
+                    if (index < s.scanStep) Label("âœ“", 13, Color.White, true)
                 }
-                Column { Label(label, bold = true); Label(if (index < s.scanStep) "Selesai" else if (index == s.scanStep) "Memproses…" else "Menunggu", 12, Muted) }
+                Column { Label(label, bold = true); Label(if (index < s.scanStep) "Selesai" else if (index == s.scanStep) "Memprosesâ€¦" else "Menunggu", 12, Muted) }
             }
         }
     }
@@ -165,7 +161,6 @@ import java.time.LocalDate
 }
 
 @Composable private fun FailureScreen(s: UiState, vm: EcoceiptViewModel) {
-    Heading("PEMINDAIAN NOTA", "Nota belum selesai diproses")
     Column(Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(96.dp).background(Color.White, CircleShape), contentAlignment = Alignment.Center) { Label("!", 44, DarkTeal, true) }
@@ -175,7 +170,7 @@ import java.time.LocalDate
     if (s.rawText.isNotBlank()) Panel { Label("Teks hasil OCR", bold = true); Label(s.rawText, 12, Muted) }
     Panel {
         Label("Tips agar nota terbaca", 13, bold = true)
-        Label("• Foto di tempat yang terang\n• Pastikan nota rata dan tidak terlipat\n• Hindari bayangan dan gambar buram", 12, Muted)
+        Label("â€¢ Foto di tempat yang terang\nâ€¢ Pastikan nota rata dan tidak terlipat\nâ€¢ Hindari bayangan dan gambar buram", 12, Muted)
     }
     Action("Ambil Foto Ulang") { vm.navigate(Screen.SCAN) }
     Action("Pilih dari Galeri", secondary = true, onClick = vm::chooseGallery)
@@ -186,7 +181,6 @@ import java.time.LocalDate
     var editing by remember { mutableStateOf<Int?>(null) }
     var showEditor by remember { mutableStateOf(false) }
     var showRaw by rememberSaveable { mutableStateOf(false) }
-    BackTitle("Koreksi Transaksi", vm::back)
     Panel {
         Label("Periksa hasil pembacaan AI sebelum disimpan", 12, bold = true)
         Label("${s.draft.items.count { it.needsReview || !it.valid }} item perlu diperiksa", 11, Danger)
@@ -208,7 +202,7 @@ import java.time.LocalDate
             if (item.needsReview || !item.valid) Badge("Periksa", true)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Label("Jumlah ${item.quantity}", 12, Muted)
-                Label("Harga ${if (item.unitPrice < 0) "—" else rupiah(item.unitPrice)}", 12, Muted)
+                Label("Harga ${if (item.unitPrice < 0) "â€”" else rupiah(item.unitPrice)}", 12, Muted)
                 Label(if (item.valid) rupiah(item.subtotal) else "Belum valid", 12, bold = true)
             }
         }
@@ -241,7 +235,7 @@ import java.time.LocalDate
                 Box(Modifier.weight(1f)) { Input("Jumlah", qty, { qty = it }, true) }
                 Box(Modifier.weight(1f)) { Input("Harga satuan (Rp)", price, { price = it }, true) }
             }
-            Panel(color = Mint) { KeyValue("Subtotal (otomatis)", if (value.valid) rupiah(value.subtotal) else "—", DarkTeal) }
+            Panel(color = Mint) { KeyValue("Subtotal (otomatis)", if (value.valid) rupiah(value.subtotal) else "â€”", DarkTeal) }
             Action("Simpan Perubahan", value.valid) { onSave(value) }
         }
     }

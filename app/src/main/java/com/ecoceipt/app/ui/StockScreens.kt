@@ -21,7 +21,6 @@ import java.util.UUID
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var editing by remember { mutableStateOf<Product?>(null) }
     var form by remember { mutableStateOf(false) }
-    Heading("DATA STOK", "Kelola stok, lead time, dan stok cadangan")
     Input("Cari produk", query, { query = it })
     Filters(listOf("Semua", "Lengkap", "Belum Lengkap"), filter) { filter = it }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -50,7 +49,6 @@ import java.util.UUID
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var explanation by remember { mutableStateOf(false) }
     val recommendations = s.recommendations
-    Heading("REKOMENDASI STOK", "Waktu terbaik untuk belanja ulang")
     Filters(listOf("Semua", "Perlu Restock", "Cukup"), filter) { filter = it }
     val missing = s.products.count { !it.complete }
     if (missing > 0) Panel(Modifier.clickable { vm.navigate(Screen.INCOMPLETE) }) {
@@ -93,7 +91,6 @@ import java.util.UUID
     if (product == null) { Empty("Produk tidak ditemukan", "Kembali ke daftar stok."); return }
     val r = s.recommendations.find { it.product.id == product.id } ?: return
     var purchase by remember { mutableStateOf(false) }
-    BackTitle(product.name, vm::back)
     Badge(r.status, r.needsRestock)
     Panel {
         Label("Penjualan 7 hari terakhir", 13, bold = true)
@@ -121,7 +118,6 @@ import java.util.UUID
 
 @Composable fun IncompleteScreen(s: UiState, vm: EcoceiptViewModel) {
     var editing by remember { mutableStateOf<Product?>(null) }
-    BackTitle("REKOMENDASI STOK", vm::back)
     Label("Data stok belum lengkap", 20, bold = true)
     Label("Kami butuh stok tersedia, lama barang datang, dan stok cadangan agar bisa menghitung kapan kamu perlu belanja.", 14, Muted)
     val missing = s.products.filter { !it.complete }

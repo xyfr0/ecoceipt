@@ -17,7 +17,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.util.UUID
 
-enum class Screen { LOGIN, HOME, SCAN, PROCESSING, FAILURE, REVIEW, HISTORY, ANALYSIS, STOCK, RECOMMENDATIONS, PRODUCT, INCOMPLETE }
+enum class Screen { LOGIN, HOME, SCAN, PROCESSING, FAILURE, REVIEW, HISTORY, ANALYSIS, STOCK, RECOMMENDATIONS, PRODUCT, INCOMPLETE, ACCOUNT }
 data class UiState(
     val screen: Screen = Screen.LOGIN, val products: List<Product> = emptyList(),
     val receipts: List<Receipt> = emptyList(), val busy: Boolean = false, val message: String? = null,
