@@ -3,6 +3,7 @@ package com.ecoceipt.app.domain
 object Inventory {
     fun validate(receipt: Receipt) {
         require(receipt.id.isNotBlank()) { "ID transaksi tidak valid." }
+        require(!receipt.date.isAfter(java.time.LocalDate.now())) { "Tanggal nota tidak boleh di masa depan." }
         require(receipt.items.size in 1..100) { "Nota harus berisi 1–100 item." }
         require(receipt.items.all { it.valid && !it.needsReview }) { "Periksa dan konfirmasi seluruh item terlebih dahulu." }
     }

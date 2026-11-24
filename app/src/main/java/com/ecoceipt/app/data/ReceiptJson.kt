@@ -34,7 +34,7 @@ object ReceiptJson {
             val row = array.getJSONObject(index)
             val quantity = row.optDouble("quantity", Double.NaN)
             val price = row.optDouble("unitPrice", Double.NaN)
-            ReceiptItem(row.optString("name", "").take(120),
+            ReceiptItem((row.opt("name") as? String)?.trim().orEmpty(),
                 if (quantity.isFinite() && quantity % 1.0 == 0.0 && quantity in 1.0..1_000_000.0) quantity.toInt() else 0,
                 if (price.isFinite() && price % 1.0 == 0.0 && price in 0.0..1_000_000_000.0) price.toLong() else -1,
                 needsReview = true)

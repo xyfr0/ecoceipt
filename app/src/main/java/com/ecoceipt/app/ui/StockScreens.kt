@@ -21,13 +21,19 @@ import java.util.UUID
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var editing by remember { mutableStateOf<Product?>(null) }
     var form by remember { mutableStateOf(false) }
-    Input("Cari produk", query, { query = it })
-    Filters(listOf("Semua", "Lengkap", "Belum Lengkap"), filter) { filter = it }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Label("DAFTAR PRODUK"); Link("+ Tambah Produk", { editing = null; form = true })
+    SearchField(query, { query = it }, "Cari nama produk")
+    Panel {
+        Label("Kelengkapan data", 12, Muted, true)
+        Filters(listOf("Semua", "Lengkap", "Belum Lengkap"), filter) { filter = it }
     }
-    val products = s.products.filter { it.name.contains(query, true) && (filter == "Semua" || (filter == "Lengkap") == it.complete) }
-    if (products.isEmpty()) Empty("Belum ada produk", "Tambahkan produk atau simpan nota. Isi stok tersedia sesuai jumlah saat ini.")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+        Label("Daftar produk", bold = true); Link("+ Tambah Produk", { editing = null; form = true })
+    }
+    val products = s.products.filter { it.name.contains(query.trim(), true) && (filter == "Semua" || (filter == "Lengkap") == it.complete) }
+    if (products.isEmpty()) {
+        if (s.products.isEmpty()) Empty("Belum ada produk", "Tambahkan produk atau simpan nota. Isi stok tersedia sesuai jumlah saat ini.")
+        else Empty("Produk tidak ditemukan", "Coba kata kunci lain atau ubah filter stok.")
+    }
     products.forEach { product ->
         Panel {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -49,7 +55,10 @@ import java.util.UUID
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var explanation by remember { mutableStateOf(false) }
     val recommendations = s.recommendations
-    Filters(listOf("Semua", "Perlu Restock", "Cukup"), filter) { filter = it }
+    Panel {
+        Label("Status stok", 12, Muted, true)
+        Filters(listOf("Semua", "Perlu Restock", "Cukup"), filter) { filter = it }
+    }
     val missing = s.products.count { !it.complete }
     if (missing > 0) Panel(Modifier.clickable { vm.navigate(Screen.INCOMPLETE) }) {
         Label("$missing produk belum lengkap", 12, bold = true)
@@ -59,10 +68,10 @@ import java.util.UUID
         }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Label("DAFTAR REKOMENDASI"); Link("ⓘ Batas pesan ulang?", { explanation = true })
+        Label("Rekomendasi", bold = true); Link("ⓘ Batas pesan ulang?", { explanation = true })
     }
     val shown = recommendations.filter { filter == "Semua" || if (filter == "Perlu Restock") it.needsRestock else it.reorderPoint != null && !it.needsRestock }
-    if (shown.isEmpty()) Empty("Belum ada rekomendasi", "Lengkapi data stok dan catat penjualan agar kebutuhan barang dapat dihitung.")
+    if (shown.isEmpty()) Empty("Belum ada rekomendasi", "Lengkapi data stok dan catat penjualan agar kebutuhan barang dapat dihitung.", com.ecoceipt.app.R.drawable.ic_recommendations)
     shown.forEach { r ->
         Panel(Modifier.clickable { if (r.product.complete) vm.selectProduct(r.product.id) else vm.navigate(Screen.INCOMPLETE) }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -153,9 +162,9 @@ import java.util.UUID
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Label("Form Data Stok", 20, bold = true)
             Input("Nama produk", name, { name = it.take(120) }, enabled = product == null)
-            Input("Stok tersedia saat ini (pcs)", stock, { stock = it }, true)
-            Input("Lama barang datang (hari)", lead, { lead = it }, true)
-            Input("Stok cadangan (pcs)", safety, { safety = it }, true)
+            Input("Stok tersedia saat ini (pcs)", stock, { stock = it }, true, enabled = !busy, error = numberError(stock, 0, 1000000000, optional = true))
+            Input("Lama barang datang (hari)", lead, { lead = it }, true, enabled = !busy, error = numberError(lead, 0, 365, optional = true))
+            Input("Stok cadangan (pcs)", safety, { safety = it }, true, enabled = !busy, error = numberError(safety, 0, 1000000000, optional = true))
             Label("Kosongkan data yang belum diketahui. Isi 0 jika nilainya memang nol. Stok tersedia adalah jumlah fisik saat ini.", 12, Muted)
             Action("Simpan Data", valid && !busy) { save(p) }
         }
@@ -174,8 +183,8 @@ import java.util.UUID
         Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Label("Catat Pembelian", 20, bold = true); Label(product.name, 16, bold = true)
             Label("Catat hanya barang yang sudah diterima. Pembelian tidak dihitung sebagai penjualan.", 12, Muted)
-            Input("Jumlah diterima (pcs)", qty, { qty = it }, true)
-            Input("Harga beli per pcs (Rp)", price, { price = it }, true)
+            Input("Jumlah diterima (pcs)", qty, { qty = it }, true, enabled = !busy, error = numberError(qty, 1, 1000000, optional = false))
+            Input("Harga beli per pcs (Rp)", price, { price = it }, true, enabled = !busy, error = numberError(price, 0, 1000000000, optional = false))
             DateField(date) { date = it }
             Panel(color = Mint) { KeyValue("Total", if (item.valid) rupiah(item.subtotal) else "—") }
             Action("Simpan Pembelian", item.valid && !busy) { save(item.quantity, item.unitPrice, date, id) }

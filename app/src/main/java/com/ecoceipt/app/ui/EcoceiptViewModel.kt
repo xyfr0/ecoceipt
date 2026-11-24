@@ -17,7 +17,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.util.UUID
 
-enum class Screen { LOGIN, HOME, SCAN, PROCESSING, FAILURE, REVIEW, HISTORY, ANALYSIS, STOCK, RECOMMENDATIONS, PRODUCT, INCOMPLETE, ACCOUNT }
+enum class Screen { LOGIN, REGISTER, HOME, SCAN, PROCESSING, FAILURE, REVIEW, HISTORY, ANALYSIS, STOCK, RECOMMENDATIONS, PRODUCT, INCOMPLETE, ACCOUNT }
 data class UiState(
     val screen: Screen = Screen.LOGIN, val products: List<Product> = emptyList(),
     val receipts: List<Receipt> = emptyList(), val busy: Boolean = false, val message: String? = null,
@@ -45,11 +45,14 @@ class EcoceiptViewModel(application: Application, private val saved: SavedStateH
         if (saved.get<Boolean>("guest") == true) guest()
         else if (cloudConfigured && auth.currentUser != null) connectCloud()
     }
-    private fun observe(repo: EcoceiptRepository, guest: Boolean, user: String) {
+    private fun observe(repo: EcoceiptRepository, guest: Boolean, user: String, resetScreen: Boolean = true) {
         observer?.cancel()
         repository = repo
-        _state.update { it.copy(screen = if (it.draft.id.isNotBlank()) Screen.REVIEW else Screen.HOME,
-            products = emptyList(), receipts = emptyList(), summaries = emptyMap(), recommendations = emptyList(),
+        _state.update { it.copy(screen = if (!resetScreen) it.screen else if (it.draft.id.isNotBlank()) Screen.REVIEW else Screen.HOME,
+            products = if (resetScreen) emptyList() else it.products,
+            receipts = if (resetScreen) emptyList() else it.receipts,
+            summaries = if (resetScreen) emptyMap() else it.summaries,
+            recommendations = if (resetScreen) emptyList() else it.recommendations,
             guest = guest, user = user, dataError = null) }
         observer = viewModelScope.launch {
             combine(repo.products, repo.receipts, state.map { it.today }.distinctUntilChanged()) { p, r, today ->
@@ -79,14 +82,16 @@ class EcoceiptViewModel(application: Application, private val saved: SavedStateH
     }
     fun login(email: String, password: String, register: Boolean = false) = action {
         check(cloudConfigured) { "Layanan akun belum tersedia. Kamu dapat melanjutkan sebagai tamu." }
-        require(email.contains('@') && password.length >= 6) { "Isi email yang valid dan password minimal 6 karakter." }
+        require(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) { "Masukkan alamat email yang valid." }
+        require(password.isNotBlank()) { "Password wajib diisi." }
+        require(!register || password.length >= 6) { "Password akun baru minimal 6 karakter." }
         if (register) auth.createUserWithEmailAndPassword(email.trim(), password).await()
         else auth.signInWithEmailAndPassword(email.trim(), password).await()
         connectCloud()
     }
     fun resetPassword(email: String) = action {
         check(cloudConfigured) { "Layanan akun belum tersedia." }
-        require(email.contains('@')) { "Isi email terlebih dahulu." }
+        require(android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) { "Masukkan alamat email yang valid terlebih dahulu." }
         auth.sendPasswordResetEmail(email.trim()).await()
         notify("Jika akun tersedia, tautan pemulihan dikirim ke email tersebut.")
     }
@@ -106,25 +111,39 @@ class EcoceiptViewModel(application: Application, private val saved: SavedStateH
     fun dismissMessage() { _state.update { it.copy(message = null) } }
     fun retryData() {
         val repo = repository ?: return
-        observe(repo, state.value.guest, state.value.user)
+        observe(repo, state.value.guest, state.value.user, resetScreen = false)
     }
     fun back() {
         if (state.value.screen == Screen.PROCESSING) { cancelScan(); return }
         if (state.value.busy) return
         navigate(when (state.value.screen) {
+            Screen.REGISTER -> Screen.LOGIN
             Screen.PRODUCT, Screen.INCOMPLETE -> Screen.RECOMMENDATIONS
             else -> Screen.HOME
         })
     }
     private fun action(block: suspend () -> Unit) {
         if (state.value.busy) return
+        _state.update { it.copy(busy = true) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true) }
             try { block() }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { notify(e.message ?: "Proses gagal. Coba lagi.") }
+            catch (e: Exception) { notify(userMessage(e)) }
             finally { _state.update { it.copy(busy = false) } }
         }
+    }
+    private fun userMessage(error: Exception): String = when (error) {
+        is com.google.firebase.FirebaseNetworkException -> "Tidak dapat terhubung. Periksa koneksi internet dan coba lagi."
+        is com.google.firebase.FirebaseTooManyRequestsException -> "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi."
+        is com.google.firebase.auth.FirebaseAuthException -> when (error.errorCode) {
+            "ERROR_INVALID_EMAIL" -> "Masukkan alamat email yang valid."
+            "ERROR_WEAK_PASSWORD" -> "Password terlalu lemah. Gunakan minimal 6 karakter."
+            "ERROR_EMAIL_ALREADY_IN_USE" -> "Email sudah terdaftar. Silakan masuk atau gunakan lupa password."
+            "ERROR_USER_DISABLED" -> "Akun ini dinonaktifkan."
+            "ERROR_WRONG_PASSWORD", "ERROR_USER_NOT_FOUND", "ERROR_INVALID_CREDENTIAL", "ERROR_INVALID_LOGIN_CREDENTIALS" -> "Email atau password tidak sesuai. Periksa kembali atau gunakan lupa password."
+            else -> "Layanan akun belum dapat memproses permintaan. Coba lagi nanti."
+        }
+        else -> error.message ?: "Proses gagal. Coba lagi."
     }
     fun scan(uri: Uri) {
         if (state.value.busy) return

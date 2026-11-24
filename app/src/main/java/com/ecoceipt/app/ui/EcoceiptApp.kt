@@ -42,10 +42,25 @@ import java.time.LocalDate
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (s.screen) {
                 Screen.LOGIN -> LoginScreen(s, vm)
+                Screen.REGISTER -> RegisterScreen(s, vm)
                 Screen.SCAN -> CameraScreen(s.busy, s.openGallery, vm::scan, vm::back, vm::notify)
                 else -> key(s.screen) { Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp, 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (!nav) BackButton(vm::back)
+                    if (nav) {
+                        val heading = when (s.screen) {
+                            Screen.HOME -> "Beranda" to "Kelola nota dan stok usahamu"
+                            Screen.HISTORY -> "Riwayat Transaksi" to "Lihat kembali nota penjualan dan pembelian"
+                            Screen.STOCK -> "Data Stok" to "Kelola produk dan ketersediaan stok"
+                            Screen.ANALYSIS -> "Analisis Penjualan" to "Pantau penjualan dan produk terlaris"
+                            Screen.RECOMMENDATIONS -> "Rekomendasi Stok" to "Pantau kebutuhan pengadaan produk"
+                            else -> "Akun" to "Kelola akun dan informasi aplikasi"
+                        }
+                        Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Label(heading.first, 22, bold = true)
+                            Label(heading.second, 12, Muted)
+                        }
+                    }
                     s.dataError?.let { error -> Panel { Label(error, 12, Danger); Link("Coba lagi", vm::retryData) } }
                     when (s.screen) {
                         Screen.HOME -> HomeScreen(s, vm)
@@ -79,27 +94,38 @@ import java.time.LocalDate
 
 @Composable private fun LoginScreen(s: UiState, vm: EcoceiptViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()).padding(horizontal = 55.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(90.dp))
-        AsyncImage("file:///android_asset/figma/8d105.png", "Ecoceipt", Modifier.size(180.dp))
-        Spacer(Modifier.height(32.dp))
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), placeholder = { Text("Email") }, singleLine = true,
+    var password by remember { mutableStateOf("") }
+    var submitted by rememberSaveable { mutableStateOf(false) }
+    val emailError = when {
+        email.isBlank() -> "Email wajib diisi."
+        !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Masukkan email yang valid."
+        else -> null
+    }
+    val passwordError = if (password.isBlank()) "Password wajib diisi." else null
+    AuthLayout("Sign In", "Masuk untuk mengelola nota dan stok usahamu.") {
+        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(),
+            label = { Text("Email") }, placeholder = { Text("nama@email.com") },
+            singleLine = true, enabled = !s.busy, shape = Round,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color(0xFFF3F6F6), focusedContainerColor = Color.White))
-        Spacer(Modifier.height(24.dp))
-        OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), placeholder = { Text("Password") }, singleLine = true,
-            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color(0xFFF3F6F6), focusedContainerColor = Color.White))
-        Spacer(Modifier.height(36.dp))
-        Action("Sign In", !s.busy, secondary = true, framed = true) { vm.login(email, password) }
-        Spacer(Modifier.height(8.dp))
-        Action("Create Account", !s.busy, framed = true) { vm.login(email, password, true) }
-        Link("Forget password?", { vm.resetPassword(email) }, DarkTeal)
-        Spacer(Modifier.height(48.dp))
-        Link("Continue as Guest", vm::guest, DarkTeal)
-        Spacer(Modifier.height(16.dp))
+            isError = submitted && emailError != null,
+            supportingText = { if (submitted && emailError != null) Text(emailError) })
+        OutlinedTextField(value = password, onValueChange = { password = it }, modifier = Modifier.fillMaxWidth(),
+            label = { Text("Password") }, singleLine = true, enabled = !s.busy, shape = Round,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            isError = submitted && passwordError != null,
+            supportingText = { if (submitted && passwordError != null) Text(passwordError) })
+        Action("Sign In", enabled = !s.busy, framed = true) {
+            submitted = true
+            if (emailError == null && passwordError == null) vm.login(email.trim(), password)
+        }
+        Action("Create Account", enabled = !s.busy, secondary = true, framed = true) { vm.navigate(Screen.REGISTER) }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Link("Forget password?", { vm.resetPassword(email) }, DarkTeal)
+        }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Link("Continue as Guest", vm::guest, DarkTeal)
+        }
     }
 }
 
@@ -111,7 +137,7 @@ import java.time.LocalDate
         Label("Foto nota, data transaksi tersusun otomatis", 12, Color.White)
         Action("Mulai Pindai", secondary = true) { vm.navigate(Screen.SCAN) }
     }
-    Label("RINGKASAN HARI INI")
+    Label("Ringkasan hari ini", bold = true)
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Panel(Modifier.weight(1f)) { Label("Penjualan", 12, Muted); Label(rupiah(summary.revenue), 16, bold = true) }
         Panel(Modifier.weight(1f)) { Label("Transaksi", 12, Muted); Label(summary.transactions.toString(), 16, bold = true) }
@@ -120,7 +146,7 @@ import java.time.LocalDate
         Label("REKOMENDASI STOK", color = Color.White)
         Label("${recommendations.count { it.needsRestock }} stok perlu segera restock", 12, Color.White, true)
     }
-    Label("MENU")
+    Label("Menu", bold = true)
     val menu = listOf(Triple("Riwayat Transaksi", "Lihat dan cari nota", Screen.HISTORY),
         Triple("Data Stok", "Stok dan lead time", Screen.STOCK), Triple("Analisis Penjualan", "Tren dan terlaris", Screen.ANALYSIS),
         Triple("Rekomendasi Stok", "Saran belanja ulang", Screen.RECOMMENDATIONS))
@@ -137,9 +163,9 @@ import java.time.LocalDate
         }
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Label("TRANSAKSI TERBARU"); Link("Lihat semua", { vm.navigate(Screen.HISTORY) })
+        Label("Transaksi terbaru", bold = true); Link("Lihat semua", { vm.navigate(Screen.HISTORY) })
     }
-    if (s.receipts.isEmpty()) Empty("Belum ada transaksi", "Pindai nota pertama untuk mulai mencatat penjualan.")
+    if (s.receipts.isEmpty()) Empty("Belum ada transaksi", "Pindai nota pertama untuk mulai mencatat penjualan.", com.ecoceipt.app.R.drawable.ic_history)
     s.receipts.take(3).forEach { ReceiptCard(it) }
 
 }
@@ -230,10 +256,10 @@ import java.time.LocalDate
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Label("Ubah Item", 20, bold = true)
-            Input("Nama barang", name, { name = it.take(120) })
+            Input("Nama barang", name, { name = it }, error = if (name.isBlank() || name.length > 120) "Isi nama barang (maksimal 120 karakter)." else null)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.weight(1f)) { Input("Jumlah", qty, { qty = it }, true) }
-                Box(Modifier.weight(1f)) { Input("Harga satuan (Rp)", price, { price = it }, true) }
+                Box(Modifier.weight(1f)) { Input("Jumlah", qty, { qty = it }, true, error = numberError(qty, 1, 1_000_000)) }
+                Box(Modifier.weight(1f)) { Input("Harga satuan (Rp)", price, { price = it }, true, error = numberError(price, 0, 1_000_000_000)) }
             }
             Panel(color = Mint) { KeyValue("Subtotal (otomatis)", if (value.valid) rupiah(value.subtotal) else "â€”", DarkTeal) }
             Action("Simpan Perubahan", value.valid) { onSave(value) }
@@ -241,11 +267,12 @@ import java.time.LocalDate
     }
 }
 
-@Composable fun Input(label: String, value: String, onChange: (String) -> Unit, numeric: Boolean = false, enabled: Boolean = true) {
+@Composable fun Input(label: String, value: String, onChange: (String) -> Unit, numeric: Boolean = false, enabled: Boolean = true, error: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label(label, 12, Muted)
         OutlinedTextField(value, { text -> if (!numeric || text.all { it.isDigit() }) onChange(text) },
             Modifier.fillMaxWidth(), enabled = enabled, singleLine = true, shape = Round,
+            isError = error != null, supportingText = error?.let { message -> { Text(message) } },
             keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text))
     }
 }

@@ -25,16 +25,18 @@ compiler_cp = os.pathsep.join([compiler, stdlib, annotations,
     jar('org.jetbrains.kotlinx', 'kotlinx-coroutines-core-jvm')])
 junit = jar('junit', 'junit', '4.13.2')
 hamcrest = jar('org.hamcrest', 'hamcrest-core')
-classpath = os.pathsep.join([stdlib, annotations, junit, hamcrest])
+classpath = os.pathsep.join([stdlib, annotations, junit, hamcrest, jar('org.json', 'json', '20240303')])
 out = root / 'build/offline-domain-tests'
 out.mkdir(parents=True, exist_ok=True)
 studio_java = Path('C:/Program Files/Android/Android Studio/jbr/bin/java.exe')
 java = str(studio_java) if studio_java.exists() else 'java'
 sources = list((root / 'app/src/main/java/com/ecoceipt/app/domain').glob('*.kt'))
 sources += list((root / 'app/src/test/java/com/ecoceipt/app/domain').glob('*.kt'))
+sources += [root / 'app/src/main/java/com/ecoceipt/app/data/ReceiptJson.kt',
+            root / 'app/src/test/java/com/ecoceipt/app/data/ReceiptJsonTest.kt']
 compile_command = [java, '-cp', compiler_cp, 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
     '-no-stdlib', '-no-reflect', '-jvm-target', '17', '-classpath', classpath, '-d', str(out)] + list(map(str, sources))
 subprocess.run(compile_command, check=True)
 result = subprocess.run([java, '-cp', os.pathsep.join([str(out), classpath]),
-    'org.junit.runner.JUnitCore', 'com.ecoceipt.app.domain.DomainTest'])
+    'org.junit.runner.JUnitCore', 'com.ecoceipt.app.domain.DomainTest', 'com.ecoceipt.app.data.ReceiptJsonTest'])
 sys.exit(result.returncode)

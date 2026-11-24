@@ -7,11 +7,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import com.ecoceipt.app.R
@@ -27,7 +32,7 @@ val Ink = Color(0xFF263238)
 val Muted = Color(0xFF5A686C)
 val Danger = Color(0xFF9C1C14)
 val LightGray = Color(0xFFE6ECEC)
-val Round = RoundedCornerShape(12.dp)
+val Round = RoundedCornerShape(16.dp)
 fun rupiah(amount: Long) = "Rp" + NumberFormat.getIntegerInstance(Locale.forLanguageTag("id-ID")).format(amount)
 fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2f", number)
 
@@ -47,7 +52,7 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
         fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal)
 }
 @Composable fun Panel(modifier: Modifier = Modifier, color: Color = Color.White, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().background(color, Round).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    Column(modifier.fillMaxWidth().background(color, Round).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
 }
 @Composable fun Action(text: String, enabled: Boolean = true, secondary: Boolean = false, framed: Boolean = false, onClick: () -> Unit) {
     Button(onClick, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = enabled, shape = Round,
@@ -61,13 +66,12 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
     TextButton(onClick, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) { Label(text, 12, color, true) }
 }
 @Composable fun Filters(labels: List<String>, selected: String, onSelect: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         labels.forEach { label ->
-            Box(Modifier.heightIn(min = 40.dp).clickable { onSelect(label) }, contentAlignment = Alignment.Center) {
-                Box(Modifier.background(if (label == selected) Teal else Color.White, Round).padding(horizontal = 16.dp, vertical = 5.dp)) {
-                    Label(label, 12, if (label == selected) Color.White else Ink)
-                }
-            }
+            FilterChip(selected = label == selected, onClick = { onSelect(label) },
+                label = { Label(label, 12, if (label == selected) Color.White else Muted, label == selected) },
+                shape = Round, border = null,
+                colors = FilterChipDefaults.filterChipColors(containerColor = LightGray, selectedContainerColor = Teal))
         }
     }
 }
@@ -80,13 +84,45 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
     Box(Modifier.background(if (danger) Color(0xFFFDE8E6) else LightGray, RoundedCornerShape(99.dp))
         .padding(horizontal = 10.dp, vertical = 3.dp)) { Label(text, 11, if (danger) Danger else Muted, true) }
 }
-@Composable fun Empty(title: String, message: String) {
-    Panel { Label(title, 16, bold = true); Label(message, 13, Muted) }
+@Composable fun Empty(title: String, message: String, icon: Int = R.drawable.ic_stock, action: (@Composable () -> Unit)? = null) {
+    Panel {
+        Column(Modifier.fillMaxWidth().padding(vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(56.dp).background(Mint, Round), contentAlignment = Alignment.Center) {
+                Icon(painterResource(icon), null, Modifier.size(28.dp), tint = DarkTeal)
+            }
+            Text(title, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            Text(message, color = Muted, fontSize = 13.sp, lineHeight = 19.sp, textAlign = TextAlign.Center)
+            action?.invoke()
+        }
+    }
 }
 @Composable fun BackButton(back: () -> Unit) {
     IconButton(onClick = back, modifier = Modifier.size(48.dp)) {
         Icon(painterResource(R.drawable.ic_back), "Kembali", tint = DarkTeal)
     }
+}
+@Composable fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String) {
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        value = value, onValueChange = onChange,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        singleLine = true, shape = Round,
+        placeholder = { Text(placeholder, fontSize = 14.sp) },
+        leadingIcon = { Icon(painterResource(R.drawable.ic_search), null, Modifier.size(22.dp)) },
+        trailingIcon = { if (value.isNotEmpty()) IconButton(onClick = { onChange("") }) {
+            Icon(painterResource(R.drawable.ic_clear), "Hapus pencarian", tint = Muted)
+        } },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+            focusedBorderColor = Teal, unfocusedBorderColor = LightGray,
+            focusedLeadingIconColor = Teal, unfocusedLeadingIconColor = Muted,
+            focusedPlaceholderColor = Muted, unfocusedPlaceholderColor = Muted
+        )
+    )
 }
 @Composable fun BottomNav(screen: Screen, navigate: (Screen) -> Unit) {
     NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {

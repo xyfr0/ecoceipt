@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
+import com.ecoceipt.app.R
 import coil.compose.AsyncImage
 import com.ecoceipt.app.domain.*
 import java.time.format.DateTimeFormatter
@@ -22,7 +24,7 @@ import java.util.Locale
     Panel(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Label("${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"} · ${receipt.items.size} item", 13, bold = true)
+                Label("${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"} Â· ${receipt.items.size} item", 13, bold = true)
                 Label(receipt.date.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("id-ID"))), 11, Muted)
             }
             Label(rupiah(receipt.total), 13, DarkTeal, true)
@@ -35,23 +37,41 @@ import java.util.Locale
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var period by rememberSaveable { mutableStateOf(Period.ALL) }
     var selected by remember { mutableStateOf<Receipt?>(null) }
-    Input("Cari nama barang", query, { query = it })
-    Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
-    Filters(listOf("Semua", "Penjualan", "Pembelian"), filter) { filter = it }
+    val focus = LocalFocusManager.current
+    SearchField(query, { query = it }, "Cari nama barang")
+    Panel {
+        Label("Periode", 12, Muted, true)
+        Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
+        HorizontalDivider(color = LightGray)
+        Label("Jenis transaksi", 12, Muted, true)
+        Filters(listOf("Semua", "Penjualan", "Pembelian"), filter) { filter = it }
+    }
     val start = if (period == Period.ALL) java.time.LocalDate.MIN else SalesAnalysis.start(period, s.today, s.receipts)
     val receipts = s.receipts.filter { r ->
         !r.date.isBefore(start) && !r.date.isAfter(s.today) &&
         (filter == "Semua" || (filter == "Penjualan") == (r.type == ReceiptType.SALE)) &&
         (query.isBlank() || r.items.any { it.name.contains(query, ignoreCase = true) })
     }
-    Label("${receipts.size} transaksi", 12, Muted)
-    if (receipts.isEmpty()) Empty("Transaksi tidak ditemukan", "Nota yang sudah disimpan akan muncul di sini. Coba ubah pencarian atau periode.")
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically) {
+        Label("Daftar transaksi", 14, bold = true)
+        Badge("${receipts.size} transaksi")
+    }
+    if (receipts.isEmpty()) Empty(
+        if (s.receipts.isEmpty()) "Belum ada transaksi" else "Transaksi tidak ditemukan",
+        if (s.receipts.isEmpty()) "Nota yang telah disimpan akan tampil di sini." else "Coba kata pencarian lain atau ubah filter transaksi.",
+        R.drawable.ic_history
+    ) {
+        if (query.isNotBlank() || period != Period.ALL || filter != "Semua") {
+            Link("Reset pencarian dan filter", { query = ""; period = Period.ALL; filter = "Semua"; focus.clearFocus() })
+        }
+    }
     receipts.forEach { receipt -> ReceiptCard(receipt) { selected = receipt } }
     selected?.let { receipt ->
         AlertDialog(onDismissRequest = { selected = null }, title = { Text("Detail Transaksi") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Label("${receipt.date} · ${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"}", 12, Muted)
-                receipt.items.forEach { Label("${it.name}\n${it.quantity} × ${rupiah(it.unitPrice)} = ${rupiah(it.subtotal)}", 13) }
+                Label("${receipt.date} Â· ${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"}", 12, Muted)
+                receipt.items.forEach { Label("${it.name}\n${it.quantity} Ã— ${rupiah(it.unitPrice)} = ${rupiah(it.subtotal)}", 13) }
                 HorizontalDivider(); KeyValue("Total", rupiah(receipt.total), DarkTeal)
             }
         }, confirmButton = { TextButton({ selected = null }) { Text("Tutup") } })
@@ -62,8 +82,11 @@ import java.util.Locale
     var period by rememberSaveable { mutableStateOf(Period.ALL) }
     val analysis = s.summaries[period] ?: SalesAnalysis.calculate(emptyList(), period, s.today)
     val count = s.recommendations.count { it.needsRestock }
-    Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
-    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Panel {
+        Label("Periode", 12, Muted, true)
+        Filters(Period.entries.map { it.label }, period.label) { label -> period = Period.entries.first { it.label == label } }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Panel(Modifier.weight(1f).heightIn(min = 143.dp)) {
             AsyncImage("file:///android_asset/figma/53454.png", null, Modifier.size(40.dp))
             Label("Total Penjualan", 10, Muted); Label(rupiah(analysis.revenue), 20)
@@ -76,15 +99,15 @@ import java.util.Locale
         }
     }
     Panel {
-        Label("TREN PENJUALAN")
+        Label("Tren penjualan", bold = true)
         if (analysis.transactions == 0) Label("Belum ada penjualan pada periode ini.", 12, Muted)
         Bars(analysis.trend.map { it.revenue }, analysis.trend.map { it.date.format(DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("id-ID"))) })
-        Label("Nilai penjualan per hari (Rp) · paling banyak 7 hari terakhir", 10, Muted)
+        Label("Nilai penjualan per hari (Rp) Â· paling banyak 7 hari terakhir", 10, Muted)
         Label("Rata-rata ${decimal(analysis.averageDailyQuantity)} pcs/hari", 12, Muted)
         analysis.quantityChange?.let { Label("Jumlah terjual ${if (it >= 0) "+" else ""}${decimal(it)}% dari periode sebelumnya", 11, Muted) }
     }
     Panel {
-        Label("PRODUK TERLARIS")
+        Label("Produk terlaris", bold = true)
         val quantity = analysis.bestSellers.sumOf { it.quantity }.coerceAtLeast(1)
         if (analysis.bestSellers.isEmpty()) Label("Belum ada produk terjual.", 12, Muted)
         analysis.bestSellers.take(5).forEachIndexed { index, product ->
@@ -102,7 +125,7 @@ import java.util.Locale
 }
 
 @Composable private fun Change(value: Double?) {
-    Label(if (value == null) "Belum ada pembanding" else "${if (value >= 0) "↑" else "↓"} ${decimal(kotlin.math.abs(value))}% dari periode lalu", 10,
+    Label(if (value == null) "Belum ada pembanding" else "${if (value >= 0) "â†‘" else "â†“"} ${decimal(kotlin.math.abs(value))}% dari periode lalu", 10,
         if (value != null && value < 0) Danger else Teal)
 }
 

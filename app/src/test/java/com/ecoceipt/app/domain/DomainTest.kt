@@ -5,6 +5,16 @@ import org.junit.Test
 import java.time.LocalDate
 
 class DomainTest {
+    @Test fun numericInputDistinguishesUnknownZeroAndInvalidValues() {
+        assertNull(numberError("", 0, 365, optional = true))
+        assertNotNull(numberError("", 1, 100))
+        assertNull(numberError("0", 0, 365))
+        assertNotNull(numberError("0", 1, 100))
+        assertNotNull(numberError("366", 0, 365))
+        assertNotNull(numberError("9999999999999999999999999", 0, 365))
+        assertNotNull(numberError("1.5", 0, 365))
+        assertNotNull(numberError("-1", 0, 365))
+    }
     private val today = LocalDate.of(2026, 11, 22)
     private val rice = Product(productId("Beras 5 kg"), "Beras 5 kg", 4, 4, 6)
     private fun receipt(q: Int, daysAgo: Long = 0, type: ReceiptType = ReceiptType.SALE, name: String = rice.name) =
@@ -61,6 +71,13 @@ class DomainTest {
     @Test fun insufficientStockRejectsWholeTransactionWithoutMutatingInput() {
         val initial = listOf(rice)
         assertThrows(IllegalArgumentException::class.java) { Inventory.apply(receipt(5), initial) }
+        assertEquals(4, initial.single().stock)
+    }
+    @Test fun futureReceiptCannotChangeStock() {
+        val initial = listOf(rice)
+        assertThrows(IllegalArgumentException::class.java) {
+            Inventory.apply(receipt(1).copy(date = LocalDate.now().plusDays(1)), initial)
+        }
         assertEquals(4, initial.single().stock)
     }
     @Test fun unreviewedOrInvalidItemsCannotBeSaved() {
