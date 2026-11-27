@@ -1,10 +1,8 @@
 # Ecoceipt — Kelompok 9 PAPB
 
-Implementasi Android Kotlin + Jetpack Compose berdasarkan **Kelompok 9 - TIF A_nim_nama.docx (1).pdf**, terutama Bab II bagian 2.4. Referensi ide: [Ecoceipt di Devpost](https://devpost.com/software/ecoceipt). Referensi UI: [Figma kelompok](https://www.figma.com/design/C5VDJqCqyTIE0QLUmkivXz/PROJECT-AKHIR-PRAKTIKUM?node-id=0-1).
+Referensi ide: [Ecoceipt di Devpost](https://devpost.com/software/ecoceipt). Referensi UI: [Figma kelompok](https://www.figma.com/design/C5VDJqCqyTIE0QLUmkivXz/PROJECT-AKHIR-PRAKTIKUM?node-id=0-1).
 
 ## Status pengerjaan
-
-Kode aplikasi, integrasi layanan, aturan Firestore, dan pengujian sudah ditambahkan. **Belum ada APK yang berhasil dibangun atau verifikasi di emulator.** Lingkungan pengerjaan memblokir koneksi Gradle daemon, akses tulis cache Gradle pengguna, dan resolusi DNS untuk unduhan dependensi/aset.
 
 - 20 pengujian domain JUnit sudah dijalankan langsung menggunakan compiler Kotlin lokal: seluruhnya lulus.
 - Parser Kotlin memeriksa 16 berkas sumber/pengujian: tidak ditemukan kesalahan sintaks. Ini belum memverifikasi seluruh resolusi API Android dan dependensi.
