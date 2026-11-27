@@ -47,6 +47,13 @@ class DomainTest {
     @Test fun thresholdEqualityTriggersRestock() {
         val r = StockRecommender.calculate(rice.copy(stock = 18), listOf(receipt(21)), today)
         assertTrue(r.needsRestock)
+        assertFalse(r.nearRestock)
+    }
+    @Test fun stockJustAboveRopTriggersNearRestockWarning() {
+        val near = StockRecommender.calculate(rice.copy(stock = 21), listOf(receipt(21)), today)
+        assertFalse(near.needsRestock)
+        assertTrue(near.nearRestock)
+        assertEquals("Mendekati batas", near.status)
     }
     @Test fun sufficientStockHasZeroSuggestedPurchase() {
         val r = StockRecommender.calculate(rice.copy(stock = 100), listOf(receipt(21)), today)
@@ -116,5 +123,21 @@ class DomainTest {
         Inventory.validate(r)
         assertEquals(100_000_000_000_000_000L, r.total)
         assertFalse(item.copy(unitPrice = Long.MAX_VALUE).valid)
+    }
+    @Test fun revertRestoresSaleAndDeductsPurchase() {
+        val sale = receipt(3, type = ReceiptType.SALE)
+        val afterSale = Inventory.apply(sale, listOf(rice))
+        assertEquals(1, afterSale.single().stock)
+        assertEquals(4, Inventory.revert(sale, afterSale).single().stock)
+
+        val purchase = receipt(5, type = ReceiptType.PURCHASE)
+        val afterPurchase = Inventory.apply(purchase, listOf(rice))
+        assertEquals(9, afterPurchase.single().stock)
+        assertEquals(4, Inventory.revert(purchase, afterPurchase).single().stock)
+    }
+    @Test fun revertPurchaseRejectsNegativeStock() {
+        assertThrows(IllegalArgumentException::class.java) {
+            Inventory.revert(receipt(10, type = ReceiptType.PURCHASE), listOf(rice))
+        }
     }
 }

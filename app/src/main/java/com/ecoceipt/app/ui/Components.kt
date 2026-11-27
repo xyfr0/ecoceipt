@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalFocusManager
@@ -31,6 +32,8 @@ val DarkTeal = Color(0xFF0F6865)
 val Ink = Color(0xFF263238)
 val Muted = Color(0xFF5A686C)
 val Danger = Color(0xFF9C1C14)
+val Warning = Color(0xFFE08E26)
+val SafeGreen = Color(0xFF16A34A)
 val LightGray = Color(0xFFE6ECEC)
 val Round = RoundedCornerShape(16.dp)
 fun rupiah(amount: Long) = "Rp" + NumberFormat.getIntegerInstance(Locale.forLanguageTag("id-ID")).format(amount)
@@ -125,19 +128,34 @@ fun decimal(number: Double) = String.format(Locale.forLanguageTag("id-ID"), "%.2
     )
 }
 @Composable fun BottomNav(screen: Screen, navigate: (Screen) -> Unit) {
-    NavigationBar(containerColor = Color.White, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
-        listOf(
-            Triple(Screen.HOME, "Beranda", R.drawable.ic_home),
-            Triple(Screen.HISTORY, "Riwayat", R.drawable.ic_history),
-            Triple(Screen.STOCK, "Stok", R.drawable.ic_stock),
-            Triple(Screen.ANALYSIS, "Analisis", R.drawable.ic_analysis),
-            Triple(Screen.RECOMMENDATIONS, "Rekomendasi", R.drawable.ic_recommendations),
-            Triple(Screen.ACCOUNT, "Akun", R.drawable.ic_account)
-        ).forEach { (destination, label, icon) ->
-            NavigationBarItem(selected = screen == destination, onClick = { navigate(destination) },
-                icon = { Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(24.dp)) },
-                colors = NavigationBarItemDefaults.colors(selectedIconColor = DarkTeal,
-                    unselectedIconColor = Muted, indicatorColor = Mint))
+    Box(Modifier.fillMaxWidth().height(94.dp)) {
+        Row(Modifier.fillMaxWidth().height(72.dp).align(Alignment.BottomCenter)
+            .background(Color.White, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
+            verticalAlignment = Alignment.CenterVertically) {
+            NavDestination(Screen.HOME, "Beranda", R.drawable.ic_home, screen == Screen.HOME, navigate)
+            NavDestination(Screen.HISTORY, "Riwayat", R.drawable.ic_history, screen == Screen.HISTORY, navigate)
+            Spacer(Modifier.weight(1f))
+            NavDestination(Screen.STOCK, "Stok", R.drawable.ic_stock, screen == Screen.STOCK, navigate)
+            NavDestination(Screen.ACCOUNT, "Akun", R.drawable.ic_account, screen == Screen.ACCOUNT, navigate)
         }
+        Box(Modifier.align(Alignment.TopCenter).size(68.dp)
+            .background(Mint, CircleShape).padding(5.dp)
+            .background(DarkTeal, CircleShape)
+            .clickable { navigate(Screen.SCAN) }, contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_nav_scan), "Pindai nota", Modifier.size(30.dp), tint = Color.White)
+        }
+        Label("Pindai", 11, Muted, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 7.dp))
+    }
+}
+
+@Composable private fun RowScope.NavDestination(
+    destination: Screen, title: String, icon: Int, selected: Boolean, navigate: (Screen) -> Unit
+) {
+    Column(Modifier.weight(1f).fillMaxHeight().clickable { navigate(destination) },
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(painterResource(icon), title, Modifier.size(24.dp),
+            tint = if (selected) DarkTeal else Muted)
+        Spacer(Modifier.height(4.dp))
+        Label(title, 11, if (selected) DarkTeal else Muted, selected)
     }
 }

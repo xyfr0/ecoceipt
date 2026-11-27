@@ -3,6 +3,7 @@
 .idea/
 **/build/
 local.properties
+gemini.local.properties
 app/google-services.json
 *.jks
 *.keystore

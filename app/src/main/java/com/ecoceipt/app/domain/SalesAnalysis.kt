@@ -53,10 +53,14 @@ data class StockRecommendation(
     val reorderPoint: Long?, val suggestedPurchase: Long?, val hasSalesHistory: Boolean
 ) {
     val needsRestock: Boolean get() = reorderPoint != null && product.stock != null && product.stock <= reorderPoint
+    val nearRestock: Boolean get() = reorderPoint != null && product.stock != null &&
+        product.stock > reorderPoint &&
+        product.stock <= maxOf(ceil(reorderPoint * 1.25).toLong(), reorderPoint + 2)
     val status: String get() = when {
         !product.complete -> "Data belum lengkap"
         !hasSalesHistory -> "Belum ada penjualan"
         needsRestock -> "Segera restock"
+        nearRestock -> "Mendekati batas"
         else -> "Stok cukup"
     }
 }

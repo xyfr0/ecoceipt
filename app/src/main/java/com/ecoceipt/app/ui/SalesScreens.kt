@@ -24,7 +24,7 @@ import java.util.Locale
     Panel(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Label("${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"} Â· ${receipt.items.size} item", 13, bold = true)
+                Label("${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"} \u00b7 ${receipt.items.size} item", 13, bold = true)
                 Label(receipt.date.format(DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.forLanguageTag("id-ID"))), 11, Muted)
             }
             Label(rupiah(receipt.total), 13, DarkTeal, true)
@@ -32,11 +32,12 @@ import java.util.Locale
     }
 }
 
-@Composable fun HistoryScreen(s: UiState) {
+@Composable fun HistoryScreen(s: UiState, vm: EcoceiptViewModel) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var period by rememberSaveable { mutableStateOf(Period.ALL) }
     var selected by remember { mutableStateOf<Receipt?>(null) }
+    var confirmDelete by remember { mutableStateOf<Receipt?>(null) }
     val focus = LocalFocusManager.current
     SearchField(query, { query = it }, "Cari nama barang")
     Panel {
@@ -70,11 +71,31 @@ import java.util.Locale
     selected?.let { receipt ->
         AlertDialog(onDismissRequest = { selected = null }, title = { Text("Detail Transaksi") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Label("${receipt.date} Â· ${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"}", 12, Muted)
-                receipt.items.forEach { Label("${it.name}\n${it.quantity} Ã— ${rupiah(it.unitPrice)} = ${rupiah(it.subtotal)}", 13) }
+                Label("${receipt.date} \u00b7 ${if (receipt.type == ReceiptType.SALE) "Penjualan" else "Pembelian"}", 12, Muted)
+                receipt.items.forEach { Label("${it.name}\n${it.quantity} \u00d7 ${rupiah(it.unitPrice)} = ${rupiah(it.subtotal)}", 13) }
                 HorizontalDivider(); KeyValue("Total", rupiah(receipt.total), DarkTeal)
             }
-        }, confirmButton = { TextButton({ selected = null }) { Text("Tutup") } })
+        }, confirmButton = { TextButton({ selected = null }) { Text("Tutup") } },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = receipt; selected = null }, enabled = !s.busy) {
+                    Text("Hapus", color = Danger)
+                }
+            })
+    }
+    confirmDelete?.let { receipt ->
+        AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            title = { Text("Hapus Transaksi?") },
+            text = { Text("Transaksi akan dihapus dari riwayat dan perubahan stoknya akan dikembalikan.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val target = receipt
+                    confirmDelete = null
+                    vm.deleteReceipt(target)
+                }, enabled = !s.busy) { Text("Hapus", color = Danger) }
+            },
+            dismissButton = { TextButton({ confirmDelete = null }) { Text("Batal") } }
+        )
     }
 }
 
@@ -102,7 +123,7 @@ import java.util.Locale
         Label("Tren penjualan", bold = true)
         if (analysis.transactions == 0) Label("Belum ada penjualan pada periode ini.", 12, Muted)
         Bars(analysis.trend.map { it.revenue }, analysis.trend.map { it.date.format(DateTimeFormatter.ofPattern("EEE", Locale.forLanguageTag("id-ID"))) })
-        Label("Nilai penjualan per hari (Rp) Â· paling banyak 7 hari terakhir", 10, Muted)
+        Label("Nilai penjualan per hari (Rp) \u00b7 paling banyak 7 hari terakhir", 10, Muted)
         Label("Rata-rata ${decimal(analysis.averageDailyQuantity)} pcs/hari", 12, Muted)
         analysis.quantityChange?.let { Label("Jumlah terjual ${if (it >= 0) "+" else ""}${decimal(it)}% dari periode sebelumnya", 11, Muted) }
     }
@@ -125,7 +146,7 @@ import java.util.Locale
 }
 
 @Composable private fun Change(value: Double?) {
-    Label(if (value == null) "Belum ada pembanding" else "${if (value >= 0) "â†‘" else "â†“"} ${decimal(kotlin.math.abs(value))}% dari periode lalu", 10,
+    Label(if (value == null) "Belum ada pembanding" else "${if (value >= 0) "\u2191" else "\u2193"} ${decimal(kotlin.math.abs(value))}% dari periode lalu", 10,
         if (value != null && value < 0) Danger else Teal)
 }
 

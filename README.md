@@ -45,7 +45,7 @@ APK akan berada di `app/build/outputs/apk/debug/app-debug.apk` **setelah build b
 4. Buat Cloud Firestore. Pasang isi `firestore.rules` melalui tab Rules. Data akun berada di `users/{uid}/products` dan `users/{uid}/receipts`; pengguna lain tidak memperoleh akses.
 5. Aktifkan Firebase AI Logic dengan Gemini Developer API sesuai alur console. Kode memakai Firebase AI Logic untuk mengakses Gemini tanpa menyimpan secret Gemini API key di APK. Periksa persyaratan dan kuota yang ditampilkan console sebelum mengaktifkan layanan.
 6. Untuk build debug, daftarkan token App Check debug perangkat yang muncul di Logcat pada Firebase Console. Build release memakai Play Integrity. Jangan menonaktifkan aturan akses Firestore untuk mengatasi error.
-7. Model awal adalah `gemini-2.5-flash-lite`. Pastikan masih tersedia di proyek Firebase; model dapat diganti melalui properti Gradle `geminiModel` tanpa mengubah alur aplikasi:
+7. Model awal adalah `gemini-3.5-flash-lite`. Pastikan masih tersedia di proyek Firebase; model dapat diganti melalui properti Gradle `geminiModel` tanpa mengubah alur aplikasi:
 
    ```powershell
    .\gradlew.bat :app:assembleDebug -PgeminiModel=nama-model-yang-tersedia

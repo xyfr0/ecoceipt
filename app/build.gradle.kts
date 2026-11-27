@@ -1,8 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+val localGeminiProperties = Properties().apply {
+    val config = rootProject.file("gemini.local.properties")
+    if (config.isFile) config.inputStream().use { load(it) }
+}
+val localGeminiKey = localGeminiProperties.getProperty("geminiApiKey", "")
 
 android {
     namespace = "com.ecoceipt.app"
@@ -14,7 +21,13 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "GEMINI_MODEL", "\"${providers.gradleProperty("geminiModel").getOrElse("gemini-2.5-flash-lite")}\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"${providers.gradleProperty("geminiModel").getOrElse("gemini-3.5-flash-lite")}\"")
+        buildConfigField("String", "GEMINI_API_KEY", "\"\"")
+    }
+    buildTypes {
+        getByName("debug") {
+            buildConfigField("String", "GEMINI_API_KEY", "\"${localGeminiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
@@ -53,9 +66,11 @@ dependencies {
 
 val verifyFigmaAssets by tasks.registering {
     val assetFolder = layout.projectDirectory.dir("src/main/assets/figma")
+    val logo = layout.projectDirectory.file("src/main/res/drawable-nodpi/ecoceipt_logo.png")
     doLast {
-        val required = listOf("8d105.png", "53454.png", "7d5c6.png", "c7474.svg", "60c30.svg", "d2a24.svg", "eb40c.svg")
-        val missing = required.filter { !assetFolder.file(it).asFile.isFile || assetFolder.file(it).asFile.length() == 0L }
+        val required = listOf("53454.png", "7d5c6.png", "c7474.svg", "60c30.svg", "d2a24.svg", "eb40c.svg")
+        val missing = required.filter { !assetFolder.file(it).asFile.isFile || assetFolder.file(it).asFile.length() == 0L } +
+            listOfNotNull("ecoceipt_logo.png".takeIf { !logo.asFile.isFile || logo.asFile.length() == 0L })
         check(missing.isEmpty()) {
             "Aset Figma belum tersedia: ${missing.joinToString()}. Jalankan scripts/download-figma-assets.ps1 dari root proyek."
         }

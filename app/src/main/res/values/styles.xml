@@ -1,10 +1,13 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.Ecoceipt" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">#0F6865</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
         <item name="android:colorAccent">#168C84</item>
+    </style>
+    <style name="Theme.Ecoceipt.Launch" parent="Theme.Ecoceipt">
+        <item name="android:windowBackground">@drawable/splash_window</item>
     </style>
 </resources>

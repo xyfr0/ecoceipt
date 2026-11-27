@@ -21,6 +21,7 @@ import java.util.UUID
     var filter by rememberSaveable { mutableStateOf("Semua") }
     var editing by remember { mutableStateOf<Product?>(null) }
     var form by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf<Product?>(null) }
     SearchField(query, { query = it }, "Cari nama produk")
     Panel {
         Label("Kelengkapan data", 12, Muted, true)
@@ -39,6 +40,7 @@ import java.util.UUID
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Label(product.name, bold = true, modifier = Modifier.weight(1f))
                 Link(if (product.complete) "Ubah" else "Lengkapi", { editing = product; form = true })
+                Link("Hapus", { deleting = product }, Danger)
             }
             if (!product.complete) Badge("Data belum lengkap")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -49,6 +51,15 @@ import java.util.UUID
         }
     }
     if (form) ProductSheet(editing, s.busy, { form = false }) { product -> vm.saveProduct(product) { form = false } }
+    deleting?.let { product ->
+        AlertDialog(onDismissRequest = { if (!s.busy) deleting = null },
+            title = { Text("Hapus produk?") },
+            text = { Text("${product.name} akan dihapus dari daftar stok dan rekomendasi. Riwayat transaksi tetap tersimpan. Jika produk ini ada di nota baru, produk akan muncul kembali.") },
+            confirmButton = { TextButton(onClick = { vm.deleteProduct(product) { deleting = null } }, enabled = !s.busy) {
+                Text("Hapus", color = Danger)
+            } },
+            dismissButton = { TextButton(onClick = { deleting = null }, enabled = !s.busy) { Text("Batal") } })
+    }
 }
 
 @Composable fun RecommendationsScreen(s: UiState, vm: EcoceiptViewModel) {
@@ -75,7 +86,19 @@ import java.util.UUID
     shown.forEach { r ->
         Panel(Modifier.clickable { if (r.product.complete) vm.selectProduct(r.product.id) else vm.navigate(Screen.INCOMPLETE) }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Label(r.product.name, bold = true, modifier = Modifier.weight(1f)); Badge(r.status, r.needsRestock)
+                Label(r.product.name, bold = true, modifier = Modifier.weight(1f))
+                val badgeColor = when {
+                    r.needsRestock -> Danger
+                    r.nearRestock -> Warning
+                    else -> SafeGreen
+                }
+                val badgeBg = when {
+                    r.needsRestock -> Color(0xFFFDE8E6)
+                    r.nearRestock -> Color(0xFFFFF4DC)
+                    else -> Mint
+                }
+                Text(r.status, color = badgeColor, fontSize = androidx.compose.ui.unit.TextUnit(11f, androidx.compose.ui.unit.TextUnitType.Sp),
+                    modifier = Modifier.background(badgeBg, Round).padding(horizontal = 8.dp, vertical = 4.dp))
             }
             if (!r.product.complete) Label("Belum ada: ${r.product.missing}", 12, Muted)
             else if (!r.hasSalesHistory) Label("Belum ada penjualan 7 hari terakhir. Rekomendasi belum dihitung.", 12, Muted)
@@ -87,7 +110,12 @@ import java.util.UUID
                 }
                 val ratio = (requireNotNull(r.product.stock).toFloat() / requireNotNull(r.reorderPoint).coerceAtLeast(1)).coerceIn(0f, 1f)
                 Box(Modifier.fillMaxWidth().height(6.dp).background(LightGray, Round)) {
-                    Box(Modifier.fillMaxWidth(ratio).fillMaxHeight().background(if (r.needsRestock) Danger else Teal, Round))
+                    val barColor = when {
+                        r.needsRestock -> Danger
+                        r.nearRestock -> Warning
+                        else -> SafeGreen
+                    }
+                    Box(Modifier.fillMaxWidth(ratio).fillMaxHeight().background(barColor, Round))
                 }
             }
         }

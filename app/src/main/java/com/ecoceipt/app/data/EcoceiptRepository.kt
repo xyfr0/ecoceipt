@@ -21,14 +21,26 @@ interface EcoceiptRepository {
     val products: Flow<List<Product>>
     val receipts: Flow<List<Receipt>>
     suspend fun saveProduct(product: Product)
+    suspend fun deleteProduct(product: Product)
     suspend fun saveReceipt(receipt: Receipt)
+    suspend fun deleteReceipt(receipt: Receipt)
 }
 
-class LocalRepository(context: Context) : EcoceiptRepository {
-    private val file = AtomicFile(File(context.filesDir, "guest-records.json"))
+class LocalRepository(context: Context, fileName: String = "guest-records.json") : EcoceiptRepository {
+    private val file = AtomicFile(File(context.filesDir, fileName))
     private val mutex = Mutex()
     override val products = MutableStateFlow<List<Product>>(emptyList())
     override val receipts = MutableStateFlow<List<Receipt>>(emptyList())
+
+    fun hasData(): Boolean = file.baseFile.exists() || File(file.baseFile.path + ".bak").exists()
+
+    suspend fun clear() = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            file.delete()
+            products.value = emptyList()
+            receipts.value = emptyList()
+        }
+    }
 
     suspend fun load() = withContext(Dispatchers.IO) {
         if (file.baseFile.exists() || File(file.baseFile.path + ".bak").exists()) {
@@ -56,10 +68,25 @@ class LocalRepository(context: Context) : EcoceiptRepository {
             commit(products.value.filterNot { it.id == product.id } + product.copy(revision = product.revision + 1), receipts.value)
         }
     }
+    override suspend fun deleteProduct(product: Product) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val old = products.value.find { it.id == product.id }
+                ?: error("Produk sudah dihapus. Muat ulang daftar stok.")
+            require(old.revision == product.revision) { "Stok berubah. Buka ulang produk sebelum menghapus." }
+            commit(products.value.filterNot { it.id == product.id }, receipts.value)
+        }
+    }
     override suspend fun saveReceipt(receipt: Receipt) = withContext(Dispatchers.IO) {
         mutex.withLock {
             if (receipts.value.none { it.id == receipt.id }) {
                 commit(Inventory.apply(receipt, products.value), receipts.value + receipt)
+            }
+        }
+    }
+    override suspend fun deleteReceipt(receipt: Receipt) = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            if (receipts.value.any { it.id == receipt.id }) {
+                commit(Inventory.revert(receipt, products.value), receipts.value.filterNot { it.id == receipt.id })
             }
         }
     }
@@ -98,6 +125,16 @@ class FirestoreRepository(db: FirebaseFirestore, uid: String) : EcoceiptReposito
             Unit
         }.await()
     }
+    override suspend fun deleteProduct(product: Product) {
+        val ref = productCollection.document(product.id)
+        firestore.runTransaction { tx ->
+            val old = tx.get(ref)
+            require(old.exists()) { "Produk sudah dihapus. Muat ulang daftar stok." }
+            require(old.getLong("revision") == product.revision) { "Stok berubah. Buka ulang produk sebelum menghapus." }
+            tx.delete(ref)
+            Unit
+        }.await()
+    }
     override suspend fun saveReceipt(receipt: Receipt) {
         Inventory.validate(receipt)
         val ref = receiptCollection.document(receipt.id)
@@ -113,6 +150,21 @@ class FirestoreRepository(db: FirebaseFirestore, uid: String) : EcoceiptReposito
                     "createdAt" to receipt.createdAt, "items" to receipt.items.map {
                         mapOf("name" to it.name, "quantity" to it.quantity, "unitPrice" to it.unitPrice, "needsReview" to false)
                     }))
+            }
+            Unit
+        }.await()
+    }
+    override suspend fun deleteReceipt(receipt: Receipt) {
+        val ref = receiptCollection.document(receipt.id)
+        firestore.runTransaction { tx ->
+            if (tx.get(ref).exists()) {
+                val existing = receipt.items.map { it.productId }.distinct().mapNotNull { id ->
+                    val doc = tx.get(productCollection.document(id))
+                    doc.data?.let { ReceiptJson.product(JSONObject(it)) }
+                }
+                val updated = Inventory.revert(receipt, existing)
+                updated.forEach { tx.set(productCollection.document(it.id), productMap(it)) }
+                tx.delete(ref)
             }
             Unit
         }.await()

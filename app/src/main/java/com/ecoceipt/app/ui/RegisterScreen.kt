@@ -2,6 +2,7 @@ package com.ecoceipt.app.ui
 
 import android.util.Patterns
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,10 +13,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.ecoceipt.app.R
 
 @Composable fun RegisterScreen(s: UiState, vm: EcoceiptViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -79,7 +81,7 @@ import coil.compose.AsyncImage
         if (back != null) BackButton(back) else Spacer(Modifier.height(48.dp))
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AsyncImage("file:///android_asset/figma/8d105.png", "Ecoceipt", Modifier.size(112.dp))
+            Image(painterResource(R.drawable.ecoceipt_logo), "Logo Ecoceipt", Modifier.size(112.dp))
             Label(title, 24, bold = true)
             Label(subtitle, 13, Muted)
         }

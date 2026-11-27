@@ -1,10 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $assetDir = Join-Path $projectRoot 'app\src\main\assets\figma'
+$logoDir = Join-Path $projectRoot 'app\src\main\res\drawable-nodpi'
 New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+New-Item -ItemType Directory -Force -Path $logoDir | Out-Null
 
 $assets = @{
-    '8d105.png' = 'https://www.figma.com/api/mcp/asset/0c6179e4-3b88-4fb2-a3a5-d366e023c948/8d105.png'
+    'ecoceipt_logo.png' = 'https://www.figma.com/api/mcp/asset/0c6179e4-3b88-4fb2-a3a5-d366e023c948/8d105.png'
     '53454.png' = 'https://www.figma.com/api/mcp/asset/0c6179e4-3b88-4fb2-a3a5-d366e023c948/53454.png'
     '7d5c6.png' = 'https://www.figma.com/api/mcp/asset/0c6179e4-3b88-4fb2-a3a5-d366e023c948/7d5c6.png'
     'c7474.svg' = 'https://www.figma.com/api/mcp/asset/f7bfc483-7161-4c1d-8fb1-57bb3d14b98f/c7474.svg'
@@ -13,7 +15,7 @@ $assets = @{
     'eb40c.svg' = 'https://www.figma.com/api/mcp/asset/a8886453-6aa5-49e9-972b-d7eae65b91fb/eb40c.svg'
 }
 foreach ($name in $assets.Keys) {
-    $target = Join-Path $assetDir $name
+    $target = Join-Path $(if ($name -eq 'ecoceipt_logo.png') { $logoDir } else { $assetDir }) $name
     if ((Test-Path -LiteralPath $target) -and (Get-Item -LiteralPath $target).Length -gt 0) { continue }
     $partial = "$target.part"
     & curl.exe -fL --connect-timeout 15 --max-time 60 --retry 1 $assets[$name] -o $partial

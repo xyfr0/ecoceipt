@@ -1,6 +1,7 @@
 package com.ecoceipt.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,15 +25,19 @@ import com.ecoceipt.app.R
                 Icon(painterResource(R.drawable.ic_account), null, Modifier.size(28.dp), tint = DarkTeal)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Label(if (s.guest) "Akun Tamu" else "Akun Saya", 20, bold = true)
-                Label(if (s.guest) "Data tersimpan di perangkat ini" else s.user, 13, Muted)
+                Label(if (s.guest) "Akun Tamu" else if (s.demo) "Akun Uji" else "Akun Saya", 20, bold = true)
+                Label(when {
+                    s.guest -> "Data tersimpan di perangkat ini"
+                    s.demo -> "test - Data tersimpan di perangkat ini"
+                    else -> s.user
+                }, 13, Muted)
             }
         }
     }
     Panel {
         Label("AKUN", 12, Muted, true)
         AccountOption("Informasi akun", "Status akun dan penyimpanan data") { dialog = "account" }
-        if (!s.guest) {
+        if (!s.guest && !s.demo) {
             HorizontalDivider(color = LightGray)
             AccountOption("Ubah password", "Kirim tautan pemulihan ke email akun") { dialog = "password" }
         }
@@ -62,9 +67,12 @@ import com.ecoceipt.app.R
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (page) {
                     "account" -> {
-                        Label(if (s.guest) "Status: Tamu" else "Email: ${s.user}", bold = true)
-                        Label(if (s.guest) "Nota dan stok disimpan di perangkat ini. Keluar tidak menghapus data tamu. Data ini terpisah dari data akun."
-                            else "Nota dan stok disimpan pada akunmu. Masuk dengan akun yang sama untuk membuka kembali data.", 13, Muted)
+                        Label(if (s.guest) "Status: Tamu" else if (s.demo) "Username: test (akun uji)" else "Email: ${s.user}", bold = true)
+                        Label(when {
+                            s.guest -> "Nota dan stok disimpan di perangkat ini. Keluar tidak menghapus data tamu. Data ini terpisah dari data akun."
+                            s.demo -> "Nota dan stok akun uji tersimpan di perangkat ini, terpisah dari data tamu dan akun Firebase."
+                            else -> "Nota dan stok disimpan pada akunmu. Masuk dengan akun yang sama untuk membuka kembali data."
+                        }, 13, Muted)
                     }
                     "password" -> Label("Kirim tautan untuk mengubah password ke ${s.user}? Periksa kotak masuk dan folder spam setelah tautan dikirim.", 14)
                     "help" -> {
@@ -78,7 +86,8 @@ import com.ecoceipt.app.R
                         Label("Gunakan pencahayaan yang cukup dan pastikan nota tidak terlipat. Kamu juga bisa memilih Isi Manual setelah pemindaian gagal.", 13, Muted)
                     }
                     else -> {
-                        Label("Ecoceipt", 18, bold = true)
+                        Image(painterResource(R.drawable.ecoceipt_logo), "Logo Ecoceipt", Modifier.size(112.dp)
+                            .align(Alignment.CenterHorizontally))
                         Label("Catat nota, pantau penjualan, dan kelola kebutuhan stok usahamu.", 13, Muted)
                         Label("Versi ${BuildConfig.VERSION_NAME}", 12, Muted)
                     }
